@@ -1,0 +1,2 @@
+debug:
+	dune exec sitegen

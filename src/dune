@@ -1,0 +1,4 @@
+(executable
+ (public_name sitegen)
+ (name sitegen)
+ (libraries yojson))
