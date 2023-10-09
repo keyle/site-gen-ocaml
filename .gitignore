@@ -3,6 +3,7 @@ _build/
 
 *.cmo
 *.cma
+*.html
 
 *.cmx
 *.cmi
