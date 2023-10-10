@@ -109,8 +109,6 @@ let () =
 
         print_endline (show_post post)
 
-        (* |> Omd.of_string 
-        |> Omd.to_html 
-        |> save_to_html_file "test.html"  *)
+        (* |> save_to_html_file "test.html"  *)
         (* TODO this is only saving to the same file locally over and over *)
     )
