@@ -1,5 +1,4 @@
 debug:
-	dune build --profile=dev @install
 	dune exec sitegen
 
 build:

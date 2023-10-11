@@ -20,6 +20,8 @@ doc/api.docdir/
 .duniverse/
 dune-project~
 
+./sitegen
+
 *.opam-switch/
 _opam/
 

@@ -43,7 +43,7 @@ type post = {
     mutable tags: string list;
 } [@@deriving show]
 
-let _post = {
+let default_post = {
     path = "";
     file = "";
     markdown = "";
@@ -57,14 +57,25 @@ let _post = {
     tags = [];
 }
 
-let rec find_markdown_files_rec path : post list = 
-    Sys.readdir path
+type settings = {
+    workdir: string;
+    webroot: string;
+    template: string;
+    templateindex: string;
+    contenttag: string;
+    titletag: string;
+    descriptiontag: string;
+    keywordstag: string
+} [@@deriving show]
+
+let rec find_markdown_files_rec ~from_path : post list = 
+    Sys.readdir from_path
     |> Array.to_list
     |> List.map (fun filename ->
-        let full_path = (Filename.concat path filename) in
+        let full_path = (Filename.concat from_path filename) in
         match full_path with
-        | md_file when String.ends_with ~suffix:".md" md_file -> [{_post with path = full_path; file = filename}]
-        | directory when Sys.is_directory directory -> (find_markdown_files_rec directory)
+        | md_file when String.ends_with ~suffix:".md" md_file -> [{default_post with path = full_path; file = filename}]
+        | directory when Sys.is_directory directory -> (find_markdown_files_rec ~from_path:directory)
         | _ -> []
     )
     |> List.flatten
@@ -79,6 +90,20 @@ and base_path_from_settings file : string =
     let json = Yojson.Basic.from_file file in 
     json |> member "workdir" |> to_string
 
+let get_settings file : settings =
+	let open Yojson.Basic.Util in 
+	let json = Yojson.Basic.from_file file in
+	{
+        workdir         = json |> member "workdir" |> to_string;
+        webroot         = json |> member "webroot" |> to_string;
+        template        = json |> member "template" |> to_string;
+        templateindex   = json |> member "templateindex" |> to_string;
+        contenttag      = json |> member "contenttag" |> to_string;
+        titletag        = json |> member "titletag" |> to_string;
+        descriptiontag  = json |> member "descriptiontag" |> to_string;
+        keywordstag     = json |> member "keywordstag" |> to_string;
+    }
+
 let read_file file : string = In_channel.with_open_text file In_channel.input_all  (* |> String.split_on_char '\n' *)
 
 let save_to_html_file (filename:string) (html_content:string) =
@@ -90,25 +115,60 @@ let string_contains ~needle haystack =
     try ignore (Str.search_forward (Str.regexp_string needle) haystack 0); true
     with Not_found -> false
 
-let string_replace_all ~needle ~replacement haystack =
-  Str.global_replace (Str.regexp_string needle) replacement haystack
+
+
+let string_replace_all ~needle ~replacement haystack : string  =
+    let escape_backreferences s = Str.global_replace (Str.regexp "\\\\\\([1-9][0-9]*\\)") "\\\\\\\\\\1" s in
+    let escaped_replacement = escape_backreferences replacement in
+    Str.global_replace (Str.regexp_string needle) escaped_replacement haystack
+
+(* note we could raise an error or return an option, I opted for the simplest, as I had no need for that *)
+let parse_selector ~(selector:string) (source:string) : string =
+    let open Str in
+    let regex = regexp (Printf.sprintf "<%s>\\(.*\\)</%s>" selector selector) in
+    try
+        let _ = search_forward regex source 0 in
+        matched_group 1 source
+    with
+    | Not_found -> "" 
 
 let () = 
-    find_settings 
-    |> base_path_from_settings 
-    |> find_markdown_files_rec
-    |> List.iter (fun (post: post) -> 
-        let markdown = read_file post.path in 
-            post.markdown <- markdown;
-        let html = markdown |> Omd.of_string |> Omd.to_html in
-            post.html <- html;
-        let is_blog = string_contains ~needle:"<x-blog-title>" markdown in
-            post.is_blog <- is_blog;
-        Printf.printf "is_blog %b\n" is_blog; 
-        (* TODO @next ... *)
+    let settings = find_settings |> get_settings in
+        find_markdown_files_rec ~from_path:settings.workdir
+        |> List.iter (fun (article: post) -> 
+            Printf.printf "Parsing %s \n" article.file;
+            (* populate the MARKDOWN *)
+            let markdown = read_file article.path in 
+                article.markdown <- markdown;
+            (* determine if this page is a blog post *)
+            let is_blog = string_contains ~needle:"<x-blog-title>" markdown in
+                article.is_blog <- is_blog;
+            (* populate TEMPLATE and use a different base template if it's an index page or content page *)
+            let is_index = string_contains ~needle:"<x-index/>" markdown in
+                let template_path = if is_index then settings.templateindex else settings.template in
+                let template = read_file template_path in
+                article.html <- template;
+            (* place new HTML in place of contents tag in template *)
+            try 
+                let converted_html = article.markdown |> Omd.of_string |> Omd.to_html in
+                article.html <- string_replace_all ~needle:settings.contenttag ~replacement:converted_html article.html;
+            with 
+            | e -> print_endline ("ERROR in converted_html: " ^ Printexc.to_string e);
 
-        print_endline (show_post post)
+            (* place the new TITLE in place of title tag, with the tag name varying based on the type of post *)
+            let title_tag = if article.is_blog then "x-blog-title" else "x-title" in
+                let title = parse_selector ~selector:title_tag article.markdown in
+                article.title <- title;
+                article.html <- string_replace_all ~needle:settings.titletag ~replacement:title article.html;
+            (* set the CLASS 'blog' to our body tag if we're a blog post for different styling *)
+            if article.is_blog then
+                let body_replacement = "<body class='blog'>" in
+                article.html <- string_replace_all ~needle:"<body>" ~replacement:body_replacement article.html;
+            
+            (* Printf.printf "%s \n\t is_blog %b\n" article.title  is_blog;  *)
 
-        (* |> save_to_html_file "test.html"  *)
-        (* TODO this is only saving to the same file locally over and over *)
+            (* print_endline (show_post article) *)
+
+            (* |> save_to_html_file "test.html"  *)
+            (* note this is only saving to the same file locally over and over *)
     )
