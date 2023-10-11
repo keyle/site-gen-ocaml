@@ -118,7 +118,7 @@ let string_contains ~needle haystack =
 
 
 let string_replace_all ~needle ~replacement haystack : string  =
-    let escape_backreferences s = Str.global_replace (Str.regexp "\\\\\\([1-9][0-9]*\\)") "\\\\\\\\\\1" s in
+    let escape_backreferences s = Str.global_replace (Str.regexp "\\\\\\([1-9][0-9]*\\)") "\\\\\\\\\\1" s in (* \1 issue in html content *)
     let escaped_replacement = escape_backreferences replacement in
     Str.global_replace (Str.regexp_string needle) escaped_replacement haystack
 
@@ -148,7 +148,7 @@ let () =
                 let template_path = if is_index then settings.templateindex else settings.template in
                 let template = read_file template_path in
                 article.html <- template;
-            (* place new HTML in place of contents tag in template *)
+            (* try convert and place new HTML in place of contents tag in template *)
             try 
                 let converted_html = article.markdown |> Omd.of_string |> Omd.to_html in
                 article.html <- string_replace_all ~needle:settings.contenttag ~replacement:converted_html article.html;
