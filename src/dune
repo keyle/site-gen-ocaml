@@ -1,7 +1,7 @@
 (executable
  (public_name sitegen)
  (name sitegen)
- (libraries yojson omd str base)
+ (libraries yojson omd str base unix)
  (flags :standard -w -32-69)
  (preprocess
   (pps ppx_deriving.show)))

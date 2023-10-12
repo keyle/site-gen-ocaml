@@ -1,25 +1,5 @@
 (* 
     TODO list
-        - check if it's a blog post
-            then
-            - replace <body> with <body class='blog'>
-            - find the <sub> element make the pub_date 
-            - find <x-blog-title> for the title
-            otherwise
-            - find <x-title> for the title
-            - use now as pub_date
-
-        - check if it's an index
-            then
-            - grab a different template = settings.templateindex
-            otherwise
-            - use = settings.template
-        
-        - grab the tags from <x-tags>
-        - grab the description from <x-desc>
-        - make the vanity from the current folder and append it to the settings.webroot
-            for blogs posts this takes /blog/posts/ in between
-        
         - replace 
             settings.titletag contents with title, 
             settings.keywordstag contents with comma separated list of tags, 
@@ -41,7 +21,11 @@ type post = {
     mutable pub_date: string;
     mutable description: string;
     mutable tags: string list;
-} [@@deriving show]
+} 
+(* [@@deriving show] note overriden manually below *)
+
+let show_post { title; is_blog; path; file; vanity_url; _ } = 
+    Printf.sprintf "post { title: %s; is_blog: %b; path: %s; file: %s; \nvanity: %s}" title is_blog path file vanity_url
 
 let default_post = {
     path = "";
@@ -80,20 +64,16 @@ let rec find_markdown_files_rec ~from_path : post list =
     )
     |> List.flatten
 
-and find_settings : string = 
+let find_settings : string = 
     let home_dir = Sys.getenv "HOME" in
+    (* note we try to find the settings from ~.config first, if not, as a local dot file *)
     let default_location = (Filename.concat home_dir "/.config/site-gen/settings.json") in
     if Sys.file_exists default_location then default_location else ".settings.json"
 
-and base_path_from_settings file : string =
-    let open Yojson.Basic.Util in 
-    let json = Yojson.Basic.from_file file in 
-    json |> member "workdir" |> to_string
-
-let get_settings file : settings =
+let parse_settings file : settings =
 	let open Yojson.Basic.Util in 
 	let json = Yojson.Basic.from_file file in
-	{
+	{   (* deserialize all the json settings fields to a struct *)
         workdir         = json |> member "workdir" |> to_string;
         webroot         = json |> member "webroot" |> to_string;
         template        = json |> member "template" |> to_string;
@@ -104,7 +84,7 @@ let get_settings file : settings =
         keywordstag     = json |> member "keywordstag" |> to_string;
     }
 
-let read_file file : string = In_channel.with_open_text file In_channel.input_all  (* |> String.split_on_char '\n' *)
+let read_file file : string = In_channel.with_open_text file In_channel.input_all
 
 let save_to_html_file (filename:string) (html_content:string) =
     let out = open_out filename in
@@ -115,14 +95,25 @@ let string_contains ~needle haystack =
     try ignore (Str.search_forward (Str.regexp_string needle) haystack 0); true
     with Not_found -> false
 
-
+let now_formatted_dt = (* now as YYYY-MM-DD mm:ss *)
+    let current_time = Unix.gettimeofday () in
+    let tm = Unix.localtime current_time in
+        Printf.sprintf "%04d-%02d-%02d %02d:%02d"
+            (tm.Unix.tm_year + 1900)
+            (tm.Unix.tm_mon + 1)
+            tm.Unix.tm_mday
+            tm.Unix.tm_hour
+            tm.Unix.tm_min
 
 let string_replace_all ~needle ~replacement haystack : string  =
     let escape_backreferences s = Str.global_replace (Str.regexp "\\\\\\([1-9][0-9]*\\)") "\\\\\\\\\\1" s in (* \1 issue in html content *)
     let escaped_replacement = escape_backreferences replacement in
     Str.global_replace (Str.regexp_string needle) escaped_replacement haystack
 
-(* note we could raise an error or return an option, I opted for the simplest, as I had no need for that *)
+let string_remove ~(needle:string) haystack : string = 
+    string_replace_all ~needle:needle ~replacement:"" haystack
+
+(* selector e.g. "x-desc", note we could raise an error or return an option, I opted for the simplest, as I had no need for that *)
 let parse_selector ~(selector:string) (source:string) : string =
     let open Str in
     let regex = regexp (Printf.sprintf "<%s>\\(.*\\)</%s>" selector selector) in
@@ -133,8 +124,9 @@ let parse_selector ~(selector:string) (source:string) : string =
     | Not_found -> "" 
 
 let () = 
-    let settings = find_settings |> get_settings in
-        find_markdown_files_rec ~from_path:settings.workdir
+        find_settings 
+        |> parse_settings
+        |> fun settings -> find_markdown_files_rec ~from_path:settings.workdir
         |> List.iter (fun (article: post) -> 
             Printf.printf "Parsing %s \n" article.file;
             (* populate the MARKDOWN *)
@@ -149,11 +141,8 @@ let () =
                 let template = read_file template_path in
                 article.html <- template;
             (* try convert and place new HTML in place of contents tag in template *)
-            try 
-                let converted_html = article.markdown |> Omd.of_string |> Omd.to_html in
+            let converted_html = article.markdown |> Omd.of_string |> Omd.to_html in
                 article.html <- string_replace_all ~needle:settings.contenttag ~replacement:converted_html article.html;
-            with 
-            | e -> print_endline ("ERROR in converted_html: " ^ Printexc.to_string e);
 
             (* place the new TITLE in place of title tag, with the tag name varying based on the type of post *)
             let title_tag = if article.is_blog then "x-blog-title" else "x-title" in
@@ -162,12 +151,33 @@ let () =
                 article.html <- string_replace_all ~needle:settings.titletag ~replacement:title article.html;
             (* set the CLASS 'blog' to our body tag if we're a blog post for different styling *)
             if article.is_blog then
-                let body_replacement = "<body class='blog'>" in
-                article.html <- string_replace_all ~needle:"<body>" ~replacement:body_replacement article.html;
+                begin
+                    article.html <- string_replace_all ~needle:"<body>" ~replacement:"<body class='blog'>" article.html;
+                    article.pub_date <- article.markdown |> parse_selector ~selector:"sub"
+                end
+            else
+                article.pub_date <- now_formatted_dt;
+            (* parse and get TAGS/KEYWORDS, both used in blog posts and content pages as meta keywords *)
+            article.tags <- 
+                article.markdown 
+                |> parse_selector ~selector:"x-tags" 
+                |> String.split_on_char ',' 
+                |> List.map String.trim;
             
-            (* Printf.printf "%s \n\t is_blog %b\n" article.title  is_blog;  *)
+            (* parse and get the DESCRIPTION tag, used for meta description *)
+            article.description <-
+                article.markdown 
+                |> parse_selector ~selector:"x-desc";
+            
+            (* populate the VANITY URL = settings.webroot + (article.path - settings.workdir - article.file) *)
+            article.vanity_url <-
+                settings.webroot ^ article.path 
+                |> string_remove ~needle:settings.workdir
+                |> string_remove ~needle:article.file;
 
-            (* print_endline (show_post article) *)
+
+            (* print_endline (show_post article); *)
+            (* print_endline (show_settings settings); *)
 
             (* |> save_to_html_file "test.html"  *)
             (* note this is only saving to the same file locally over and over *)
