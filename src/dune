@@ -1,7 +1,11 @@
 (executable
  (public_name sitegen)
  (name sitegen)
- (libraries yojson omd str base unix)
+ (libraries yojson omd str unix)
  (flags :standard -w -32-69)
  (preprocess
-  (pps ppx_deriving.show)))
+  (pps ppx_deriving.show ppx_string_interpolation)))
+
+; ppx_string_interpolation is from https://github.com/bloomberg/ppx_string_interpolation
+; -32-69 are removing errors about unused functions/ident
+; unix is used for date time

@@ -1,133 +1,18 @@
 (* 
     TODO list
-        - replace 
-            settings.titletag contents with title, 
-            settings.keywordstag contents with comma separated list of tags, 
-            settings.descriptiontag contents with description, 
-            settings.contenttag contents with contents of markdown
-
-        - save the html in place using save_to_html_file
+        - generate the blog index
+        - generate the sitemap
+        - generate the rss feed
  *)
 
-type post = {
-    path: string;
-    file: string;
-    mutable markdown: string;
-    mutable html: string;
-    mutable title: string;
-    mutable is_blog: bool;
-    mutable url: string;
-    mutable vanity_url: string;
-    mutable pub_date: string;
-    mutable description: string;
-    mutable tags: string list;
-} 
-(* [@@deriving show] note overriden manually below *)
-
-let show_post { title; is_blog; path; file; vanity_url; _ } = 
-    Printf.sprintf "post { title: %s; is_blog: %b; path: %s; file: %s; \nvanity: %s}" title is_blog path file vanity_url
-
-let default_post = {
-    path = "";
-    file = "";
-    markdown = "";
-    html = "";
-    title = "";
-    is_blog = false;
-    url = "";
-    vanity_url = "";
-    pub_date = "";
-    description = "";
-    tags = [];
-}
-
-type settings = {
-    workdir: string;
-    webroot: string;
-    template: string;
-    templateindex: string;
-    contenttag: string;
-    titletag: string;
-    descriptiontag: string;
-    keywordstag: string
-} [@@deriving show]
-
-let rec find_markdown_files_rec ~from_path : post list = 
-    Sys.readdir from_path
-    |> Array.to_list
-    |> List.map (fun filename ->
-        let full_path = (Filename.concat from_path filename) in
-        match full_path with
-        | md_file when String.ends_with ~suffix:".md" md_file -> [{default_post with path = full_path; file = filename}]
-        | directory when Sys.is_directory directory -> (find_markdown_files_rec ~from_path:directory)
-        | _ -> []
-    )
-    |> List.flatten
-
-let find_settings : string = 
-    let home_dir = Sys.getenv "HOME" in
-    (* note we try to find the settings from ~.config first, if not, as a local dot file *)
-    let default_location = (Filename.concat home_dir "/.config/site-gen/settings.json") in
-    if Sys.file_exists default_location then default_location else ".settings.json"
-
-let parse_settings file : settings =
-	let open Yojson.Basic.Util in 
-	let json = Yojson.Basic.from_file file in
-	{   (* deserialize all the json settings fields to a struct *)
-        workdir         = json |> member "workdir" |> to_string;
-        webroot         = json |> member "webroot" |> to_string;
-        template        = json |> member "template" |> to_string;
-        templateindex   = json |> member "templateindex" |> to_string;
-        contenttag      = json |> member "contenttag" |> to_string;
-        titletag        = json |> member "titletag" |> to_string;
-        descriptiontag  = json |> member "descriptiontag" |> to_string;
-        keywordstag     = json |> member "keywordstag" |> to_string;
-    }
-
-let read_file file : string = In_channel.with_open_text file In_channel.input_all
-
-let save_to_html_file (filename:string) (html_content:string) =
-    let out = open_out filename in
-    output_string out html_content;
-    close_out out
-
-let string_contains ~needle haystack =
-    try ignore (Str.search_forward (Str.regexp_string needle) haystack 0); true
-    with Not_found -> false
-
-let now_formatted_dt = (* now as YYYY-MM-DD mm:ss *)
-    let current_time = Unix.gettimeofday () in
-    let tm = Unix.localtime current_time in
-        Printf.sprintf "%04d-%02d-%02d %02d:%02d"
-            (tm.Unix.tm_year + 1900)
-            (tm.Unix.tm_mon + 1)
-            tm.Unix.tm_mday
-            tm.Unix.tm_hour
-            tm.Unix.tm_min
-
-let string_replace_all ~needle ~replacement haystack : string  =
-    let escape_backreferences s = Str.global_replace (Str.regexp "\\\\\\([1-9][0-9]*\\)") "\\\\\\\\\\1" s in (* \1 issue in html content *)
-    let escaped_replacement = escape_backreferences replacement in
-    Str.global_replace (Str.regexp_string needle) escaped_replacement haystack
-
-let string_remove ~(needle:string) haystack : string = 
-    string_replace_all ~needle:needle ~replacement:"" haystack
-
-(* selector e.g. "x-desc", note we could raise an error or return an option, I opted for the simplest, as I had no need for that *)
-let parse_selector ~(selector:string) (source:string) : string =
-    let open Str in
-    let regex = regexp (Printf.sprintf "<%s>\\(.*\\)</%s>" selector selector) in
-    try
-        let _ = search_forward regex source 0 in
-        matched_group 1 source
-    with
-    | Not_found -> "" 
+open Utils
+open Data
 
 let () = 
         find_settings 
         |> parse_settings
         |> fun settings -> find_markdown_files_rec ~from_path:settings.workdir
-        |> List.iter (fun (article: post) -> 
+        |> List.map (fun (article: post) -> 
             Printf.printf "Parsing %s \n" article.file;
             (* populate the MARKDOWN *)
             let markdown = read_file article.path in 
@@ -170,15 +55,31 @@ let () =
                 |> parse_selector ~selector:"x-desc";
             
             (* populate the VANITY URL = settings.webroot + (article.path - settings.workdir - article.file) *)
-            article.vanity_url <-
+            article.url <-
                 settings.webroot ^ article.path 
                 |> string_remove ~needle:settings.workdir
                 |> string_remove ~needle:article.file;
 
+            (* page <title> *)
+            article.html <- article.html |> string_replace_all ~needle:settings.titletag ~replacement:article.title;
+            (* page meta <keywords> *)
+            article.html <- article.html |> string_replace_all ~needle:settings.keywordstag ~replacement:(String.concat ", " article.tags);
+            (* page meta <description> *)
+            article.html <- article.html |> string_replace_all ~needle:settings.descriptiontag ~replacement:article.description;
+            (* save contents of html into the (path - filename) + "index.html" *)
+            article.html |> save_to_html_file ((string_remove ~needle:article.file article.path) ^ "index.html");
 
             (* print_endline (show_post article); *)
             (* print_endline (show_settings settings); *)
+            article (* map returns a list of articles so lets return the article *)
+            
+        ) |> List.iter (fun (article:post) ->
+                (* todo generate the blog index *)
+                (* todo generate the sitemap *)
+                (* todo generate the rss feed *)
 
-            (* |> save_to_html_file "test.html"  *)
-            (* note this is only saving to the same file locally over and over *)
-    )
+            print_endline (show_post article);
+            let name = "mario" in
+                print_endline [%string "Hello $name!"]
+        )
+
