@@ -2,9 +2,10 @@
  (public_name sitegen)
  (name sitegen)
  (libraries yojson omd str unix)
+; (modes byte)
  (flags :standard -w -32-69)
  (preprocess
-  (pps ppx_deriving.show ppx_string_interpolation)))
+  (pps ppx_deriving.show)))
 
 ; ppx_string_interpolation is from https://github.com/bloomberg/ppx_string_interpolation
 ; -32-69 are removing errors about unused functions/ident

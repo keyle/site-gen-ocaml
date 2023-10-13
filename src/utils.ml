@@ -53,6 +53,18 @@ let now_formatted_dt = (* now as YYYY-MM-DD mm:ss *)
             tm.Unix.tm_hour
             tm.Unix.tm_min
 
+let convert_date (str:string) : string = (* "2023-06-18" -> "Jun 18, 2023" *)
+    Scanf.sscanf str "%d-%d-%d" (fun year month day ->
+        let month_str = match month with
+            | 1 -> "Jan" | 2 -> "Feb" | 3 -> "Mar" | 4 -> "Apr"
+            | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug"
+            | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
+            | _ -> failwith "Invalid month"
+        in
+            Printf.sprintf "%s %d, %d" month_str day year
+    )
+
+
 let string_replace_all ~needle ~replacement haystack : string  =
     let escape_backreferences s = Str.global_replace (Str.regexp "\\\\\\([1-9][0-9]*\\)") "\\\\\\\\\\1" s in (* \1 issue in html content *)
     let escaped_replacement = escape_backreferences replacement in

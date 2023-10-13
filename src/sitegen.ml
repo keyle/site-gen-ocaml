@@ -7,13 +7,14 @@
 
 open Utils
 open Data
+open Boring
 
 let () = 
-        find_settings 
-        |> parse_settings
-        |> fun settings -> find_markdown_files_rec ~from_path:settings.workdir
+    let settings = find_settings |> parse_settings in
+    let articles =
+        find_markdown_files_rec ~from_path:settings.workdir
         |> List.map (fun (article: post) -> 
-            Printf.printf "Parsing %s \n" article.file;
+            (* Printf.printf "Parsing %s \n" article.file; *)
             (* populate the MARKDOWN *)
             let markdown = read_file article.path in 
                 article.markdown <- markdown;
@@ -73,13 +74,12 @@ let () =
             (* print_endline (show_settings settings); *)
             article (* map returns a list of articles so lets return the article *)
             
-        ) |> List.iter (fun (article:post) ->
-                (* todo generate the blog index *)
+        ) in 
+            generate_blog_index settings articles
                 (* todo generate the sitemap *)
                 (* todo generate the rss feed *)
+        
 
-            print_endline (show_post article);
-            let name = "mario" in
-                print_endline [%string "Hello $name!"]
-        )
+            (* articles |> List.iter (fun article -> show_post article |> print_endline) *)
+            (* print_endline !contents; *)
 

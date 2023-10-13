@@ -6,8 +6,11 @@ build:
 
 release:
 	dune clean
+	rm -rf release/
 	dune build --profile=release
-	cp _build/default/src/sitegen.exe ./sitegen
+	mkdir -p release/
+	mv _build/default/src/sitegen.exe release/sitegen
 
 clean:
 	dune clean
+	rm -rf release/

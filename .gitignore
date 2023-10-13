@@ -21,6 +21,7 @@ doc/api.docdir/
 dune-project~
 
 ./sitegen
+release/
 
 *.opam-switch/
 _opam/
