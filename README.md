@@ -64,21 +64,20 @@ make build
 
 ### Benchmarks
 
-Because I'm a nerd I also like to run stats. This compares the different build. Note that both were written pretty naively, I was new to Rust and I am new to OCaml. So, take those with a grain of salt. However the implementation logic is very similar...
-
-
-#### Rust version
-
-`  Time (mean ± σ):       4.3 ms ±   0.2 ms    [User: 2.1 ms, System: 2.0 ms]`
-
-#### OCaml version
-
-`  Time (mean ± σ):       6.4 ms ±   0.2 ms    [User: 3.5 ms, System: 2.8 ms]`
-
-#### OCaml bytecode version
-
-`  Time (mean ± σ):      21.2 ms ±   0.2 ms    [User: 17.6 ms, System: 3.3 ms]`
+For fun, I ran some stats. This compares the different builds. Note that both were written pretty naively, I was new to Rust and I am new to OCaml. So, take those with a grain of salt. However the implementation logic is very linear and very similar...
 
 #### Method
 
-`hyperfine --warmup 5 ./sitegen`
+`hyperfine --warmup 5 ./sitegen    # ran for approx 400-600 iterations.` 
+
+#### Rust version
+
+`Time (mean ± σ):       4.3 ms ±   0.2 ms    [User: 2.1 ms, System: 2.0 ms]`
+
+#### OCaml version
+
+`Time (mean ± σ):       6.4 ms ±   0.2 ms    [User: 3.5 ms, System: 2.8 ms]`
+
+#### OCaml bytecode version
+
+`Time (mean ± σ):      21.2 ms ±   0.2 ms    [User: 17.6 ms, System: 3.3 ms]`
