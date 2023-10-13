@@ -64,6 +64,12 @@ let convert_date (str:string) : string = (* "2023-06-18" -> "Jun 18, 2023" *)
             Printf.sprintf "%s %d, %d" month_str day year
     )
 
+let only_date str = (* 2023-06-06 22:45 -> 2023-06-06 *)
+  if String.length str >= 10 then
+    String.sub str 0 10
+  else
+    str
+
 
 let string_replace_all ~needle ~replacement haystack : string  =
     let escape_backreferences s = Str.global_replace (Str.regexp "\\\\\\([1-9][0-9]*\\)") "\\\\\\\\\\1" s in (* \1 issue in html content *)

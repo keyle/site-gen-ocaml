@@ -52,7 +52,7 @@ let () =
             
             (* parse and get the DESCRIPTION tag, used for meta description *)
             article.description <-
-                article.markdown 
+                article.html 
                 |> parse_selector ~selector:"x-desc";
             
             (* populate the VANITY URL = settings.webroot + (article.path - settings.workdir - article.file) *)
@@ -75,9 +75,9 @@ let () =
             article (* map returns a list of articles so lets return the article *)
             
         ) in 
-            generate_blog_index settings articles
-                (* todo generate the sitemap *)
-                (* todo generate the rss feed *)
+            generate_blog_index settings articles;
+            generate_sitemap settings articles;
+            generate_rss_feed settings articles;
         
 
             (* articles |> List.iter (fun article -> show_post article |> print_endline) *)
