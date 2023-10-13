@@ -79,12 +79,18 @@ let string_replace_all ~needle ~replacement haystack : string  =
 let string_remove ~(needle:string) haystack : string = 
     string_replace_all ~needle:needle ~replacement:"" haystack
 
+let remove_returns str =
+    let open Str in
+    global_replace (regexp "\r?\n") "" str
+
 (* selector e.g. "x-desc", note we could raise an error or return an option, I opted for the simplest, as I had no need for that *)
 let parse_selector ~(selector:string) (source:string) : string =
     let open Str in
-    let regex = regexp (Printf.sprintf "<%s>\\(.*\\)</%s>" selector selector) in
+    (* let clamped = string_replace_all ~needle:"\n" ~replacement:"" source in *)
+    let cleaned = remove_returns source in
+    let regex = regexp (Printf.sprintf {|<%s>\(.*\)</%s>|} selector selector) in
     try
-        let _ = search_forward regex source 0 in
-        matched_group 1 source
+        let _ = search_forward regex cleaned 0 in
+        matched_group 1 cleaned
     with
     | Not_found -> "" 
