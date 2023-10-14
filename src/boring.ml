@@ -29,7 +29,7 @@ let process_article (settings:settings) (article:post) : post =
                     article.pub_date <- article.markdown |> parse_selector ~selector:"sub"
                 end
             else
-                article.pub_date <- now_formatted_dt;
+                article.pub_date <- now_formatted_dt();
             (* parse and get TAGS/KEYWORDS, both used in blog posts and content pages as meta keywords *)
             article.tags <- 
                 article.markdown 

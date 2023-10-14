@@ -44,7 +44,7 @@ let string_contains ~needle haystack =
     try ignore (Str.search_forward (Str.regexp_string needle) haystack 0); true
     with Not_found -> false
 
-let now_formatted_dt = (* now as YYYY-MM-DD mm:ss *)
+let now_formatted_dt () = (* now as YYYY-MM-DD mm:ss *)
     let current_time = Unix.gettimeofday () in
     let tm = Unix.localtime current_time in
         Printf.sprintf "%04d-%02d-%02d %02d:%02d"
@@ -70,7 +70,6 @@ let only_date str = (* 2023-06-06 22:45 -> 2023-06-06 *)
     String.sub str 0 10
   else
     str
-
 
 let string_replace_all ~needle ~replacement haystack : string  =
     let escape_backreferences s = Str.global_replace (Str.regexp "\\\\\\([1-9][0-9]*\\)") "\\\\\\\\\\1" s in (* \1 issue in html content *)
