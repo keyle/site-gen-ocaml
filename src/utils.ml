@@ -1,4 +1,6 @@
 open Data
+open Str
+open Yojson.Basic.Util 
 
 let rec find_markdown_files_rec ~from_path : post list = 
     Sys.readdir from_path
@@ -19,7 +21,6 @@ let find_settings : string =
     if Sys.file_exists default_location then default_location else ".settings.json"
 
 let parse_settings file : settings =
-	let open Yojson.Basic.Util in 
 	let json = Yojson.Basic.from_file file in
 	{   (* deserialize all the json settings fields to a struct *)
         workdir         = json |> member "workdir" |> to_string;
@@ -80,12 +81,10 @@ let string_remove ~(needle:string) haystack : string =
     string_replace_all ~needle:needle ~replacement:"" haystack
 
 let remove_returns str =
-    let open Str in
     global_replace (regexp "\r?\n") "" str
 
 (* selector e.g. "x-desc", note we could raise an error or return an option, I opted for the simplest, as I had no need for that *)
 let parse_selector ~(selector:string) (source:string) : string =
-    let open Str in
     (* let clamped = string_replace_all ~needle:"\n" ~replacement:"" source in *)
     let cleaned = remove_returns source in
     let regex = regexp (Printf.sprintf {|<%s>\(.*\)</%s>|} selector selector) in
