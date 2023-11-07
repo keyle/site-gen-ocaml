@@ -50,6 +50,12 @@ It will be included in the RSS and linked from the homepage. Note that this last
 
 ### Running
 
+### Requirement
+
+```
+opam install core
+```
+
 #### Debug
 
 ```
