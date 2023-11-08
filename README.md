@@ -53,7 +53,7 @@ It will be included in the RSS and linked from the homepage. Note that this last
 ### Requirement
 
 ```
-opam install core
+opam install core omd ppx_deriving yojson
 ```
 
 #### Debug
