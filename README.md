@@ -68,13 +68,24 @@ make # or dune exec sitegen
 make build
 ```
 
+### See also
+
+* `site-gen-rust` a remake of this in [OCaml](https://github.com/keyle/site-gen-rust)
+* `site-gen-c` a remake of this in [modern C](https://github.com/keyle/site-gen-c)
+
 ### Benchmarks
 
 For fun, I ran some stats. This compares the different builds. Note that both were written pretty naively, I was new to Rust and I am new to OCaml. So, take those with a grain of salt. However the implementation logic is very linear and very similar...
 
+The C version could be much faster, I'm doing a ton of allocations that aren't strictly needed for the sake of getting it done. To be optimised.
+
 #### Method
 
-`hyperfine --warmup 5 ./sitegen    # ran for approx 400-600 iterations.` 
+`hyperfine --warmup 5 ./sitegen...    # ran for approx 400-600 iterations.` 
+
+#### C version
+
+`Time (mean ± σ):       3.0 ms ±   0.2 ms    [User: 1.1 ms, System: 1.8 ms]`
 
 #### Rust version
 
