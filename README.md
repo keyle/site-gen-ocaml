@@ -70,7 +70,7 @@ make build
 
 ### See also
 
-* `site-gen-rust` a remake of this in [OCaml](https://github.com/keyle/site-gen-rust)
+* `site-gen-rust` a remake of this in [Rust](https://github.com/keyle/site-gen-rust)
 * `site-gen-c` a remake of this in [modern C](https://github.com/keyle/site-gen-c)
 
 ### Benchmarks
